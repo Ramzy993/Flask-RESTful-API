@@ -1,32 +1,65 @@
-from db import db
+from flask_restful import Resource, reqparse
+from flask_jwt import jwt_required
+from models.item import ItemModel
 
 
-class ItemModel(db.Model):
-    __tablename__ = 'items'
+class Item(Resource):
+    parser = reqparse.RequestParser()
+    parser.add_argument('price',
+                        type=float,
+                        required=True,
+                        help="This field cannot be blank.")
+    parser.add_argument('store_id',
+                        type=int,
+                        required=True,
+                        help="This field cannot be blank.")
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64))
-    price = db.Column(db.Float(precision=2))
+    @jwt_required()
+    def get(self, name):
+        item = ItemModel.find_by_name(name)
 
-    store_id = db.Column(db.Integer, db.ForeignKey('stores.id'), nullable=False)
-    store = db.relationship('StoreModel')
+        if item:
+            return item.json()
+        return {'message': 'Item not found.'}, 404
 
-    def __init__(self, name, price, store_id):
-        self.name = name
-        self.price = price
-        self.store_id = store_id
+    def post(self, name):
+        if ItemModel.find_by_name(name):
+            return {'meassage': "An item with name {} already exist.".format(name)}, 400
 
-    def json(self):
-        return {'name': self.name, 'price': self.price}
+        data = Item.parser.parse_args()
 
-    def save_to_db(self):
-        db.session.add(self)
-        db.session.commit()
+        item = ItemModel(name, **data)
 
-    def delete_from_db(self):
-        db.session.delete(self)
-        db.session.commit()
+        try:
+            item.save_to_db()
+            return {"message": "Item Saved correctly."}, 400
+        except:
+            return {"message": "An error occured inserting the item to the database."}, 500
 
-    @classmethod
-    def find_by_name(cls, name):
-        return cls.query.filter_by(name=name).first()
+    def delete(self, name):
+        item = ItemModel.find_by_name(name)
+
+        if item:
+            item.delete_from_db()
+            return {'message': 'Item deleted'}
+
+        return {'message': 'Item not found.'}, 404
+
+    def put(self, name):
+        data = ItemModel.find_by_name(name)
+
+        item = ItemModel.find_by_name(name)
+
+        if item:
+            item.price = data['price']
+        else:
+            item = ItemModel(name, **data)
+
+        item.save_to_db()
+
+        return item.json()
+
+
+class ItemList(Resource):
+    def get(self):
+        return {'items': list(map(lambda x: x.json(), ItemModel.query.all()))}

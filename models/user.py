@@ -1,25 +1,29 @@
-from db import db
+from flask_restful import Resource, reqparse
+from models.user import UserModel
 
 
-class UserModel(db.Model):
-    __tablename__ = 'users'
+class UserRegister(Resource):
 
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64))
-    password = db.Column(db.String(64))
+    parser = reqparse.RequestParser()
+    parser.add_argument('username',
+                        type=str,
+                        required=True,
+                        help="This field cannot be blank.")
+    parser.add_argument('password',
+                        type=str,
+                        required=True,
+                        help="This field cannot be blank.")
 
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
+    def post(self):
+        data = UserRegister.parser.parse_args()
 
-    def save_to_db(self):
-        db.session.add(self)
-        db.session.commit()
+        if UserModel.find_by_username(data['username']):
+            return {"message": "A user with that username is already exits."}, 400
 
-    @classmethod
-    def find_by_username(cls, username):
-        return cls.query.filter_by(username=username).first()
+        user = UserModel(data['username'], data['password'])
+        try:
+            user.save_to_db()
+        except:
+            return {"message": "An error occured inserting the user to the database."}, 500
 
-    @classmethod
-    def find_by_id(cls, _id):
-        return cls.query.filter_by(id=_id).first()
+        return {"message": "User created successfully."}, 201
