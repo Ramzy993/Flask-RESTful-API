@@ -1,38 +1,28 @@
-from flask_restful import Resource
-from models.store import StoreModel
+from db import db
 
 
-class Store(Resource):
+class StoreModel(db.Model):
+    __tablename__ = 'stores'
 
-    def get(self, name):
-        store = StoreModel.find_by_name(name)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64))
 
-        if store:
-            return store.json()
+    items = db.relationship('ItemModel', lazy='dynamic')
 
-        return {'meassage': 'Store not found'}, 404
+    def __init__(self, name):
+        self.name = name
 
-    def post(self, name):
-        if StoreModel.find_by_name(name):
-            return {'message': 'A store with name {} already exists.'.format(name)}, 400
+    def json(self):
+        return {'name': self.name, 'items': [item.json() for item in self.items.all()]}
 
-        store = StoreModel(name)
+    def save_to_db(self):
+        db.session.add(self)
+        db.session.commit()
 
-        try:
-            store.save_to_db()
-            return {"message": "Store Saved correctly."}, 400
-        except:
-            return {"message": "An error occured inserting the item to the database."}, 500
+    def delete_from_db(self):
+        db.session.delete(self)
+        db.session.commit()
 
-    def delete(self, name):
-        store = StoreModel.find_by_name(name)
-
-        if store:
-            store.delete_from_db()
-
-        return {'message': 'Store deleted'}
-
-
-class StoreList(Resource):
-    def get(self):
-        return {'stores': list(map(lambda x: x.json(), StoreModel.query.all()))}
+    @classmethod
+    def find_by_name(cls, name):
+        return cls.query.filter_by(name=name).first() 
