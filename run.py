@@ -1,4 +1,4 @@
-from app imp ort app
+from app import app
 from db import db
 
 
