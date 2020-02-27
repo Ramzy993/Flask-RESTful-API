@@ -16,12 +16,7 @@ app.secret_key = 'yousseframzy'
 
 api = Api(app)
 
-@app.before_first_request
-def create_table():
-    app_db.create_all()
 
 
 if __name__=='__main__':
-    from db import app_db
-    app_db.init_app(app)
     app.run(port=5000, debug=True)
